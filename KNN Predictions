@@ -1,0 +1,75 @@
+library(readxl)
+SocialMedia_Test <- read_excel("Documents/BAN840/Homework 12/SocialMedia.xlsx",
+sheet = "SocialMedia_Test")
+View(SocialMedia_Test)
+library(readxl)
+SocialMedia_Train <- read_excel("Documents/BAN840/Homework 12/SocialMedia.xlsx",
+sheet = "SocialMedia_Train")
+View(SocialMedia_Train)
+library(readxl)
+SocialMedia_Score <- read_excel("Documents/BAN840/Homework 12/SocialMedia.xlsx",
+sheet = "SocialMedia_Score")
+View(SocialMedia_Score)
+options(scipen=999)
+
+#Change to factors
+SocialMedia_Train$SocialMedia = as.factor(SocialMedia_Train$SocialMedia)
+SocialMedia_Test$SocialMedia = as.factor(SocialMedia_Test$SocialMedia)
+SocialMedia_Score$SocialMedia = as.factor(SocialMedia_Score$SocialMedia)
+
+#Create model
+library(caret)
+set.seed(1)
+ctrl = trainControl(method = "cv", number=10)
+knnmodel = train(SocialMedia~Income+Age, data = SocialMedia_Train, method = "knn", trControl=ctrl,preProcess = c("center","scale"), tuneGrid = expand.grid(.k=c(1:12)))
+knnmodel
+
+#predicted classes and probabilities for model
+predict(knnmodel, type = "prob")
+predict(knnmodel, type = "class")
+predict(knnmodel)
+
+#Set predicted classes to a variable for validation data
+predict_class = predict(knnmodel,SocialMedia_Test)
+predict_class
+
+#Look at prediction statistics to see accuracy, sensitivity, etc.
+conf_mat = confusionMatrix(predict_class,SocialMedia_Test$SocialMedia,positive = "1")
+conf_mat
+
+#set values to see ROC curve
+predict_prob = predict(knnmodel,SocialMedia_Test,type="prob")
+View(predict_prob)
+pred=prediction(predict_prob[,2],SocialMedia_Test$SocialMedia,label.ordering = c("0","1"))
+
+#Look at ROC Curve
+roc=performance(pred,measure="tpr",x.measure="fpr")
+plot(roc)
+
+#diagonal line
+abline(a=0,b=1)
+
+#generate data
+rocdata=data.frame(fpr=roc@x.values[[1]],tpr=roc@y.values[[1]],cutoff=roc@alpha.values[[1]])
+
+#Look at area under curve
+auc=performance(pred,measure="auc")
+auc
+
+#See predicted responses for Social Media score data
+predict_class_response = predict(knnmodel,SocialMedia_Score)
+predict_class_response
+
+#make roc dataframe
+rocdata <- data.frame(fpr=roc@x.values[[1]], tpr=roc@y.values[[1]], cutoff=0.3)
+
+#area under ROC curve
+auc <- performance(pred, measure = "auc")
+auc
+
+#See performance measures with a cutoff set at 0.3
+probsTest <- predict(knnmodel, SocialMedia_Test, type = "prob")
+threshold <- 0.3
+pred      <- factor( ifelse(probsTest[, 1] > threshold, 1, 0) )
+pred      <- relevel(pred, 1)   # you may or may not need this; I did
+confusionMatrix(pred, SocialMedia_Test$SocialMedia,positive = "1")
